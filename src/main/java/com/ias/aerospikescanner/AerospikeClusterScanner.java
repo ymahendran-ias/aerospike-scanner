@@ -6,18 +6,21 @@ import com.aerospike.client.command.Buffer;
 import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.policy.ScanPolicy;
 import com.ias.aerospikescanner.util.StatusUpdate;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Builder
 @Slf4j
-public class AerospikeClusterScanner implements ScanCallback {
+public class AerospikeClusterScanner {
 
     private final String workingDir;
     private final String host;
@@ -27,7 +30,7 @@ public class AerospikeClusterScanner implements ScanCallback {
     private final String username;
     private final String password;
 
-    private FileOutputStream outputStream;
+    private final List<Scanner> scanners = new ArrayList<>();
 
     private final AtomicInteger runningCount = new AtomicInteger(0);
 
@@ -43,9 +46,6 @@ public class AerospikeClusterScanner implements ScanCallback {
             log.info("Starting to scan records from cluster " + clusterName);
             run(client, namespace, set);
             log.info("Finished Scanning records from cluster " + clusterName);
-            if(null != outputStream) {
-                outputStream.close();
-            }
         } catch (AerospikeException e) {
             throw new Exception(String.format("Error while creating Aerospike " +
                     "client for %s:%d.", host, port), e);
@@ -54,6 +54,13 @@ public class AerospikeClusterScanner implements ScanCallback {
                 client.close();
             }
         }
+        scanners.forEach(s -> {
+            try {
+                s.outputStream.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
     public void run(AerospikeClient client, String namespace, String set) throws Exception {
         ScanPolicy policy = new ScanPolicy();
@@ -61,12 +68,18 @@ public class AerospikeClusterScanner implements ScanCallback {
 
         List<String> nodes = client.getNodeNames();
 
-        for (String nodeName : nodes) {
-            String outputFile = prepareDirectories() + "/keys." + clusterName + "." + nodeName +".txt";
-            outputStream = new FileOutputStream(outputFile);
-            log.info("\t\t Scanning and writing keys from node: " + nodeName + " to: " + outputFile);
-            client.scanNode(policy, nodeName, namespace, set, this);
-        }
+        nodes.parallelStream().forEach(node -> {
+            try {
+                String outputFile = prepareDirectories() + "/keys." + clusterName + "." + node +".txt";
+                FileOutputStream outputStream = new FileOutputStream(outputFile);
+                log.info("\t\t Scanning and writing keys from node: " + node + " to: " + outputFile);
+                Scanner s = new Scanner(outputStream, runningCount);
+                scanners.add(s);
+                client.scanNode(policy, node, namespace, set, s);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private String prepareDirectories() throws Exception {
@@ -75,21 +88,26 @@ public class AerospikeClusterScanner implements ScanCallback {
         return keysDir;
     }
 
-    @Override
-    public void scanCallback(Key key, Record record) throws AerospikeException {
-        if(key.digest != null) {
-            runningCount.incrementAndGet();
-            String line = Buffer.bytesToHexString(key.digest) + "\n";
-            try {
-                outputStream.write(line.getBytes());
-            } catch (Exception e) {
-                throw new AerospikeException(e.getMessage());
+    @AllArgsConstructor
+    private class Scanner implements ScanCallback {
+        private final FileOutputStream outputStream;
+        private final AtomicInteger runningCount;
+
+        @Override
+        public void scanCallback(Key key, Record record) throws AerospikeException {
+            if(key.digest != null) {
+                runningCount.incrementAndGet();
+                String line = Buffer.bytesToHexString(key.digest) + "\n";
+                try {
+                    outputStream.write(line.getBytes());
+                } catch (Exception e) {
+                    throw new AerospikeException(e.getMessage());
+                }
+            }
+
+            if(runningCount.get() % 1_000_000 == 0) {
+                log.info(" Number of records fetched from cluster("+clusterName+"): " + runningCount.get());
             }
         }
-
-        if(runningCount.get() % 1_000_000 == 0) {
-            log.info(" Number of records fetched: " + runningCount.get());
-        }
     }
-
 }

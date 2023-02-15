@@ -4,6 +4,9 @@ import com.ias.aerospikescanner.util.CommandLineOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.cli.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 @Slf4j
 public class ScannerJob {
@@ -11,14 +14,33 @@ public class ScannerJob {
     public static void main(String[] args) throws Exception {
 
         CommandLine cmd = CommandLineOptions.loadArguments(args);
-        AerospikeClusterScanner kScanner = getClusterScanner(true, cmd);
-        AerospikeClusterScanner cScanner = getClusterScanner(false, cmd);
+        boolean skipDataFetch = CommandLineOptions.isSKipDataFetch(cmd);
+        boolean skipDataCompare = CommandLineOptions.isSKipDataCompare(cmd);
+        if(skipDataFetch && skipDataCompare) {
+            log.info("You have asked to skip both dataFetch and dataCompare.  So I am going to sleep! Bye!");
+            System.exit(0);
+        }
 
-        kScanner.run();
-        cScanner.run();
-
-        KeysComparor kc = new KeysComparor(cmd.getOptionValue("workingDir"), cmd.getOptionValue("namespace"), cmd.getOptionValue("set"), cmd.getOptionValue("kosherClusterName"), cmd.getOptionValue("culpritClusterName"));
-        kc.process();
+        if(!skipDataFetch) {
+            List<AerospikeClusterScanner> scanners = new ArrayList<>();
+            scanners.add(getClusterScanner(true, cmd));
+            scanners.add(getClusterScanner(false, cmd));
+            scanners.parallelStream().forEach(scanner -> {
+                try {
+                    scanner.run();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        } else {
+            log.info("Skipping data fetch!");
+        }
+        if(!skipDataCompare) {
+            KeysComparor kc = new KeysComparor(
+                    cmd.getOptionValue("workingDir"), cmd.getOptionValue("namespace"), cmd.getOptionValue("set"),
+                    cmd.getOptionValue(CommandLineOptions.KOSHER_CLUSTER_NAME), cmd.getOptionValue(CommandLineOptions.CULPRIT_CULSTER_NAME));
+            kc.process();
+        }
 
     }
 

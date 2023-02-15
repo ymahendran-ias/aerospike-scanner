@@ -10,8 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -33,8 +32,8 @@ public class KeysComparor {
         Map<String, String> kosherData = loadFilesToMap(kosherKeysDir);
         Map<String, String> culpritData = loadFilesToMap(culpritKeysDir);
 
-        log.info("\t\t Number of keys found in Kosher cluster: " + kosherData.size());
-        log.info("\t\t Number of keys found in Culprit cluster: " + culpritData.size());
+        log.info("\t\t Number of total keys found in Kosher cluster: " + kosherData.size());
+        log.info("\t\t Number of total keys found in Culprit cluster: " + culpritData.size());
 
         AtomicInteger missingCount = new AtomicInteger(0);
         AtomicInteger matchingCount = new AtomicInteger(0);
@@ -49,70 +48,58 @@ public class KeysComparor {
             }
         });
 
-        log.info("\t\t Number of keys that were missing from Kosher Cluster: " + missingCount.get());
-        log.info("\t\t Number of keys that were found in Kosher Cluster: " + matchingCount.get());
+        log.info("\t\t Number of probable missing keys from Kosher Cluster: " + missingCount.get());
+        log.info("\t\t Number of keys found in Kosher Cluster: " + matchingCount.get());
 
         kosherData.clear();
         culpritData.clear();
-        writeMissingKeysToFile(missingData);
-
+        log.info("\t\t Fetch exact missing keys from Kosher Cluster");
+        Map<String, Set<String>> missingKeys = fetchMissingKeys(missingData);
+        log.info("\t\t Persist exact missing keys from Kosher Cluster");
+        writeMissingKeys(missingKeys);
     }
 
-    private void writeMissingKeysToFile(Map<String, String> missingData) throws Exception {
+    private Map<String, Set<String>> fetchMissingKeys(Map<String, String> missingData) throws Exception {
         Files.createDirectories(Paths.get(outputDir));
-
-        File dir = new File(culpritKeysDir);
-        File[] directoryListing = dir.listFiles();
-
         AtomicInteger count = new AtomicInteger(0);
-        final KeyContainer prevKeyMissingCache = new KeyContainer();
-        final KeyContainer prevKeyPresentCache = new KeyContainer();
-        if (directoryListing != null) {
-            for (File culpritFile : directoryListing) {
-                File file = new File(outputDir, "missingKeysFrom-"+culpritFile.getName());
-                if (!file.exists()) {
-                    Files.createFile(file.toPath());
-                }
-                FileOutputStream outputStream = new FileOutputStream(file.toPath().toString());
+        File[] files = getFiles();
+        Map<String, Set<String>> missingKeys = new HashMap<>();
+        if (files != null) {
+            for (File culpritFile : files) {
+                missingKeys.put(culpritFile.getName(), new HashSet<>());
                 Stream<String> lines = Files.lines(culpritFile.toPath());
                 lines.forEach(line -> {
                     count.incrementAndGet();
                     String[] parts = getParts(line);
                     String curKey = parts[0];
-                    boolean writeToFile = false;
-                    if(curKey.equals(prevKeyMissingCache.key)) {
-                        writeToFile = true;
-                    } else if(curKey.equals(prevKeyPresentCache.key)) {
-                        writeToFile = false;
-                    } else {
-                        if(missingData.containsKey(curKey)) {
-                            prevKeyMissingCache.key = curKey;
-                            writeToFile = true;
-                        } else {
-                            prevKeyPresentCache.key = curKey;
-                            writeToFile = false;
-                        }
-                    }
-                    if(writeToFile) {
+                    if(missingData.containsKey(curKey)) {
                         String output = line + "\n";
-                        try {
-                            outputStream.write(output.getBytes());
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-
-                    if(count.get() % 1_000_000 == 0) {
-                        log.info("\t\t Number of records looked up to fetch missing keys: " + count.get());
+                        missingKeys.get(culpritFile.getName()).add(output);
                     }
                 });
-                lines.close();
-                if(null != outputStream) {
-                    outputStream.close();
-                }
             }
         }
+        return missingKeys;
+    }
 
+    private void writeMissingKeys(Map<String, Set<String>> missingKeys) {
+        missingKeys.forEach((sourceFile, keys) -> {
+            try {
+                File output = createOutputFile(sourceFile);
+                FileOutputStream outputStream = new FileOutputStream(output.toPath().toString());
+                log.info("\t\t total missing keys found from cluster ("+sourceFile+"): " + keys.size());
+                keys.forEach(key -> {
+                    try {
+                        outputStream.write(key.getBytes());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                outputStream.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private Map<String, String> loadFilesToMap(String directory) throws Exception {
@@ -146,7 +133,16 @@ public class KeysComparor {
         return parts;
     }
 
-    private static class KeyContainer {
-        public String key = "";
+    private File createOutputFile(String sourceFileName) throws Exception {
+        File output = new File(outputDir, "missingKeysFrom-" + sourceFileName);
+        if (!output.exists()) {
+            Files.createFile(output.toPath());
+        }
+        return output;
+    }
+
+    private File[] getFiles() {
+        File dir = new File(culpritKeysDir);
+        return dir.listFiles();
     }
 }

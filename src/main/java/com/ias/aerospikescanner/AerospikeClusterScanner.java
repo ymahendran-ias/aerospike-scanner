@@ -5,7 +5,7 @@ import com.aerospike.client.Record;
 import com.aerospike.client.command.Buffer;
 import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.policy.ScanPolicy;
-import com.ias.aerospikescanner.util.StatusUpdate;
+import com.ias.aerospikescanner.util.FSUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
@@ -83,7 +83,7 @@ public class AerospikeClusterScanner {
     }
 
     private String prepareDirectories() throws Exception {
-        String keysDir = StatusUpdate.getClusterKeysPath(workingDir, namespace, set, clusterName);
+        String keysDir = FSUtil.getClusterKeysPath(workingDir, namespace, set, clusterName);
         Files.createDirectories(Paths.get(keysDir));
         return keysDir;
     }

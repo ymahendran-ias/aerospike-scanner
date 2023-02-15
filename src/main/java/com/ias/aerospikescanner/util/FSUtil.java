@@ -3,7 +3,7 @@ package com.ias.aerospikescanner.util;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class StatusUpdate {
+public class FSUtil {
 
     public static String getClusterKeysPath(String workingDir, String namespace, String setName, String clusterName) {
         return workingDir + "/" + namespace + "/" + setName + "/" + clusterName + "/clusterKeys";

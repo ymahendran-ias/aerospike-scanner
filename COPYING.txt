@@ -1,0 +1,4 @@
+Copying source code from this repository must include our LICENSE.txt in any
+frontend applications or include our LICENSE in publicly released source code.
+
+Copyright 2023-2024 Integral Ad Science, Inc. - https://github.com/integralads/aerospike-scanner

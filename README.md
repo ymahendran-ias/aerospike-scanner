@@ -49,3 +49,8 @@ Please checkout the [ScannerJobFullIntegrationTest](src/test/groovy/com/truecube
 * to run data fetch and data compare: `-ccn jp -cServer host1.net -cPort 3000 -csUser uName -csPwd pass -kServer host2.net -kPort 3000 -ksUser uName -ksPwd pass -kcn au -namespace product -kSet purchase_details -cSet purchase_details -wd /Users/jdoe/Desktop/autocheck`
 * to run just data fetch and skip data compare: `-ccn jp -cServer host1.net -cPort 3000 -csUser uName -csPwd pass -kServer host2.net -kPort 3000 -ksUser uName -ksPwd pass -kcn au -namespace product -kSet purchase_details -cSet purchase_details -wd /Users/jdoe/Desktop/autocheck -skipCompare true`
 * to run just data compare (in case you already have fetched data): `-ccn jp -cServer host1.net -cPort 3000 -csUser uName -csPwd pass -kServer host2.net -kPort 3000 -ksUser uName -ksPwd pass -kcn au -namespace product -kSet purchase_details -cSet purchase_details -wd /Users/jdoe/Desktop/autocheck -skipFetch true`
+
+# License
+
+This project is MIT Licensed.  See [`COPYING.txt`](COPYING.txt) and
+[`LICENSE.txt`](LICENSE.txt) for details.

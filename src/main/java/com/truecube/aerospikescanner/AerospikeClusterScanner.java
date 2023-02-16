@@ -1,11 +1,11 @@
-package com.ias.aerospikescanner;
+package com.truecube.aerospikescanner;
 
 import com.aerospike.client.*;
 import com.aerospike.client.Record;
 import com.aerospike.client.command.Buffer;
 import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.policy.ScanPolicy;
-import com.ias.aerospikescanner.util.FSUtil;
+import com.truecube.aerospikescanner.util.FSUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +24,7 @@ public class AerospikeClusterScanner {
 
     private final String workingDir;
     private final String host;
+    private final int port;
     private final String clusterName;
     private final String namespace;
     private final String set;
@@ -36,10 +37,11 @@ public class AerospikeClusterScanner {
 
 
     public void run() throws Exception {
-        int port = 3000;
         ClientPolicy clientPolicy = new ClientPolicy();
-        clientPolicy.user = username;
-        clientPolicy.password = password;
+        if(username != null && !"".equals(username)) {
+            clientPolicy.user = username;
+            clientPolicy.password = password;
+        }
         AerospikeClient client = null;
         try {
             client = new AerospikeClient(clientPolicy, host, port);

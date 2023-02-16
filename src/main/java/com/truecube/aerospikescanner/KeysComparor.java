@@ -1,6 +1,6 @@
-package com.ias.aerospikescanner;
+package com.truecube.aerospikescanner;
 
-import com.ias.aerospikescanner.util.FSUtil;
+import com.truecube.aerospikescanner.util.FSUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,10 +21,10 @@ public class KeysComparor {
     private final String culpritKeysDir;
     private final String outputDir;
 
-    public KeysComparor(String workingDir, String namespace, String setName, String kosherClusterName, String culpritClusterName) {
-        this.kosherKeysDir = FSUtil.getClusterKeysPath(workingDir, namespace, setName, kosherClusterName);
-        this.culpritKeysDir = FSUtil.getClusterKeysPath(workingDir, namespace, setName, culpritClusterName);
-        this.outputDir = FSUtil.getKeysOutputDirectory(workingDir, namespace, setName);
+    public KeysComparor(String workingDir, String namespace, String kosherClusterName, String kosherSet, String culpritClusterName, String culpritSet) {
+        this.kosherKeysDir = FSUtil.getClusterKeysPath(workingDir, namespace, kosherSet, kosherClusterName);
+        this.culpritKeysDir = FSUtil.getClusterKeysPath(workingDir, namespace, culpritSet, culpritClusterName);
+        this.outputDir = FSUtil.getKeysOutputDirectory(workingDir, namespace, culpritSet);
     }
 
     public void process() throws Exception {
